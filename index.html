@@ -26,7 +26,7 @@
 }
 *{box-sizing:border-box} html,body{margin:0;height:100%}
 body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer;border:1px solid var(--line-2);background:var(--surface);border-radius:10px;padding:8px 12px}
 button:hover{border-color:var(--ink-2)} button:disabled{opacity:.45;cursor:default}
 button.shu{background:var(--shu);color:var(--shu-ink);border-color:var(--shu);font-weight:700}
@@ -50,7 +50,7 @@ h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-
 .seal{position:absolute;touch-action:none;cursor:move;border:2px dashed transparent;border-radius:4px}
 .seal img{width:100%;height:100%;display:block;pointer-events:none}
 .seal.sel{border-color:var(--shu);box-shadow:0 0 0 2px rgba(255,255,255,.95)}
-.seal .x{position:absolute;top:-14px;right:-14px;width:28px;height:28px;border-radius:50%;border:2px solid #fff;background:#1f1b17;color:#fff;font-size:16px;line-height:24px;text-align:center;padding:0;display:none;touch-action:none}
+.seal .x{position:absolute;top:-30px;right:-6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:#1f1b17;color:#fff;font-size:14px;line-height:20px;text-align:center;padding:0;display:none;touch-action:none;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .seal.sel .x{display:block}
 .empty{max-width:420px;margin:28px auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 22px;text-align:center;box-shadow:var(--shadow)}
 .empty .big{font-family:var(--mincho);font-size:20px;font-weight:700;margin:6px 0 4px;text-wrap:balance}
@@ -78,6 +78,8 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
 .ctl{display:flex;gap:12px;align-items:center;font-size:12px}
 .ctl label{display:flex;align-items:center;gap:6px;flex:1;white-space:nowrap}
 .ctl .v{font-variant-numeric:tabular-nums;min-width:3.6em;text-align:right}
+.nudge{display:inline-flex;gap:2px}
+.nudge button{width:30px;height:30px;padding:0;font-size:11px;border-radius:7px}
 .msg{font-size:12.5px;min-height:1.2em;color:var(--ink-2)} .msg.err{color:var(--shu);font-weight:500}
 .bar{display:flex;gap:8px;align-items:center}
 .bar button{padding:13px 10px;border-radius:12px;font-size:15px;font-weight:700}
@@ -156,6 +158,7 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
     <div class="ctl" id="ctl" style="display:none">
       <label>大きさ<input type="range" id="sz" min="8" max="120" step="0.5"><span class="v"><span id="szv">18</span>mm</span></label>
       <label>濃さ<input type="range" id="op" min="30" max="100" step="5"><span class="v"><span id="opv">100</span>%</span></label>
+      <span class="nudge" aria-label="位置の微調整"><button type="button" data-d="0,-1" title="上へ 0.5mm">▲</button><button type="button" data-d="-1,0" title="左へ 0.5mm">◀</button><button type="button" data-d="1,0" title="右へ 0.5mm">▶</button><button type="button" data-d="0,1" title="下へ 0.5mm">▼</button></span>
       <button type="button" id="edit" style="display:none">編集</button>
       <button type="button" id="del">外す</button>
     </div>
@@ -173,7 +176,7 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
       <div class="acts"><a class="dl" id="dl" href="#" download>ダウンロード</a><button type="button" id="share" style="display:none">共有…</button></div>
       <div class="note" style="margin-top:6px">iPhoneでは「共有…」からファイルに保存・メール・LINEへ送れます。</div>
     </div>
-    <div class="note"><span id="cnt"></span>原本のPDFは変更されません。電子印鑑は見た目の押印で、電子署名（改竄検知・本人証明）ではありません。印鑑と履歴はこの端末のブラウザにだけ保存されます。</div>
+    <div class="note"><span id="cnt"></span>選んだものは矢印キー（Shiftで大きく）か ▲◀▶▼ で微調整できます。原本のPDFは変更されません。電子印鑑は見た目の押印で、電子署名（改竄検知・本人証明）ではありません。印鑑と履歴はこの端末のブラウザにだけ保存されます。</div>
   </aside>
 </div>
 
@@ -436,6 +439,19 @@ function removeSeal(p){ var i=placed.indexOf(p); if(i<0) return; placed.splice(i
 $('del').onclick = function(){ if (sel) removeSeal(sel); };
 $('clear').onclick = function(){ placed.slice().forEach(removeSeal); };
 $('edit').onclick = function(){ if (sel && sel.kind==='text') openTextEditor(sel); };
+// 微調整: 矢印キー 0.5mm、Shift で 5mm。画面の十字ボタンも同じ
+function nudge(dx, dy, mm){ if (!sel) return; var i = pageInfo[sel.page]; var mmH = i.mmW * i.H / i.W; sel.x += dx*mm/i.mmW; sel.y += dy*mm/mmH; clamp(sel); layout(sel); }
+document.querySelectorAll('.nudge button').forEach(function(b){
+  var d = b.dataset.d.split(',').map(Number), timer = null;
+  function go(){ nudge(d[0], d[1], 0.5); }
+  b.addEventListener('pointerdown', function(e){ e.preventDefault(); go(); timer = setInterval(go, 120); });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){ b.addEventListener(ev, function(){ clearInterval(timer); timer = null; }); });
+});
+document.addEventListener('keydown', function(e){
+  if (!sel || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  var m = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0] }[e.key]; if (!m) return;
+  e.preventDefault(); nudge(m[0], m[1], e.shiftKey ? 5 : 0.5);
+});
 $('sz').oninput = function(){ if(!sel) return;
   if (sel.kind==='text'){ sel.sizeMm = Number($('sz').value); $('szv').textContent = sel.sizeMm; applyText(sel); return; }
   var i=pageInfo[sel.page], a=asp(sel); var cx=sel.x+sel.w/2, cy=sel.y+(sel.w*i.W*a)/(2*i.H); sel.w=Number($('sz').value)/i.mmW; $('szv').textContent=$('sz').value; sel.x=cx-sel.w/2; sel.y=cy-(sel.w*i.W*a)/(2*i.H); clamp(sel); layout(sel); };
@@ -668,7 +684,7 @@ function openHistory(){
 }
 window.openHistory = openHistory;
 window.openSheet = function(id){ $(id).classList.add('show'); };
-window.closeSheet = function(id){ $(id).classList.remove('show'); };
+window.closeSheet = function(id){ $(id).classList.remove('show'); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); };
 document.addEventListener('keydown', function(e){ if (e.key==='Escape'){ closeSheet('mk'); closeSheet('hs'); closeSheet('tx'); } });
 
 // ---------- 起動 ----------
