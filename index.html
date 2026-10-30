@@ -66,6 +66,15 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
 .sealbtn.on{border-color:var(--shu);background:var(--shu-soft)}
 .sealbtn .mm{font-size:10.5px;color:var(--ink-2);display:block;font-variant-numeric:tabular-nums}
 .sealbtn.add{border-style:dashed;color:var(--ink-2)}
+.sealbtn.txt .ico{width:38px;height:38px;display:grid;place-items:center;background:#fff;border-radius:8px;border:1px solid var(--line);font-family:var(--mincho);font-size:22px;font-weight:700;color:#1f1b17}
+.seal.text{border-color:rgba(0,0,0,.18)}
+.seal.text.sel{border-color:var(--shu)}
+.tx textarea{width:100%;min-height:84px;padding:8px 10px;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);resize:vertical;font-size:15px;line-height:1.5}
+.tx .pvt{margin:8px 0;min-height:40px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;align-items:center;justify-content:center;overflow:auto}
+.tx .pvt img{max-width:100%;max-height:120px}
+.swatches{display:flex;gap:6px;align-items:center}
+.swatches button{width:30px;height:30px;border-radius:50%;padding:0;border:2px solid var(--line-2)}
+.swatches button.on{border-color:var(--shu);box-shadow:0 0 0 2px var(--surface) inset}
 .ctl{display:flex;gap:12px;align-items:center;font-size:12px}
 .ctl label{display:flex;align-items:center;gap:6px;flex:1;white-space:nowrap}
 .ctl .v{font-variant-numeric:tabular-nums;min-width:3.6em;text-align:right}
@@ -141,15 +150,16 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
 
   <aside class="panel">
     <div>
-      <h2>印鑑（選んでページをタップ）</h2>
+      <h2>印鑑・文字（選んでページをタップ）</h2>
       <div class="seals" id="seals"></div>
     </div>
     <div class="ctl" id="ctl" style="display:none">
       <label>大きさ<input type="range" id="sz" min="8" max="120" step="0.5"><span class="v"><span id="szv">18</span>mm</span></label>
       <label>濃さ<input type="range" id="op" min="30" max="100" step="5"><span class="v"><span id="opv">100</span>%</span></label>
+      <button type="button" id="edit" style="display:none">編集</button>
       <button type="button" id="del">外す</button>
     </div>
-    <div class="msg" id="msg">印鑑を選んで、押したい場所をタップしてください</div>
+    <div class="msg" id="msg">印鑑か「文字」を選んで、置きたい場所をタップしてください</div>
     <div class="opts">
       <label><input type="checkbox" id="flatten">押印ページを画像にして固定（剥がされにくくする）</label>
     </div>
@@ -198,6 +208,29 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
   </div>
 </div>
 
+<!-- 文字を入れる -->
+<div class="sheet" id="tx" onclick="if(event.target===this)closeSheet('tx')">
+  <div class="card tx">
+    <h3 id="txtitle">文字を入れる</h3>
+    <textarea id="ttext" placeholder="例: 2026年10月30日&#10;改行もできます"></textarea>
+    <div class="frow">
+      <div><label>文字の高さ（mm）</label><input type="text" id="tsize" inputmode="decimal" value="4"></div>
+      <div><label>書体</label><select id="tfont"><option value="gothic">ゴシック</option><option value="mincho">明朝</option></select></div>
+      <div><label>色</label><div class="swatches" id="tcolors">
+        <button type="button" data-c="#1f1b17" style="background:#1f1b17" class="on" aria-label="黒"></button>
+        <button type="button" data-c="#c8322b" style="background:#c8322b" aria-label="朱"></button>
+        <button type="button" data-c="#1d4ed8" style="background:#1d4ed8" aria-label="青"></button>
+        <input type="color" id="tcolor" value="#1f1b17" aria-label="その他の色" style="width:30px;height:30px;padding:0;border:1px solid var(--line-2);border-radius:50%;background:transparent">
+      </div></div>
+      <div><label>&nbsp;</label><label style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink)"><input type="checkbox" id="tbold">太字</label></div>
+    </div>
+    <div class="pvt" id="tpv"><span style="color:var(--ink-2);font-size:12px">ここに仕上がりが出ます</span></div>
+    <div class="bar"><button type="button" class="sub" onclick="closeSheet('tx')">閉じる</button><button type="button" class="shu save" id="txgo">この文字を置く</button></div>
+    <div class="msg err" id="txerr"></div>
+    <div class="note">4mm ≒ 11pt（書類の本文くらい）。日付・氏名・金額・「済」などの書き込みに。</div>
+  </div>
+</div>
+
 <!-- 履歴 -->
 <div class="sheet" id="hs" onclick="if(event.target===this)closeSheet('hs')">
   <div class="card">
@@ -220,6 +253,8 @@ var LS_STAMPS = 'inkan.stamps', LS_HIST = 'inkan.history';
 // ---------- 印鑑一覧 ----------
 var stamps = [];   // {id,label,src,mm,builtin}
 var curStamp = null;
+var tool = 'stamp';          // 'stamp' | 'text'
+var textDefaults = { size:4, face:'gothic', color:'#1f1b17', bold:false };
 function loadStamps(){
   stamps = [];
   if (BUILTIN_SEAL) stamps.push({ id:'gaku', label:'社印（株式会社GAKU）', src:'data:image/png;base64,'+BUILTIN_SEAL, mm:17.8, builtin:true });
@@ -236,13 +271,17 @@ var aspect = {};
 function renderStampBar(){
   var bar = $('seals'); bar.innerHTML = '';
   stamps.forEach(function(s){
-    var b = document.createElement('button'); b.type='button'; b.className = 'sealbtn'+(curStamp&&curStamp.id===s.id?' on':'');
+    var b = document.createElement('button'); b.type='button'; b.className = 'sealbtn'+(tool==='stamp'&&curStamp&&curStamp.id===s.id?' on':'');
     b.innerHTML = '<img alt=""><span>'+esc(s.label)+'<span class="mm">'+s.mm+' mm</span></span>';
     b.querySelector('img').src = s.src;
-    b.onclick = function(){ curStamp = s; renderStampBar(); say('「'+s.label+'」を選択中。押したい場所をタップ'); };
+    b.onclick = function(){ curStamp = s; tool = 'stamp'; renderStampBar(); say('「'+s.label+'」を選択中。押したい場所をタップ'); };
     bar.appendChild(b);
     if (!aspect[s.id]) { var im = new Image(); im.onload = function(){ aspect[s.id] = im.naturalHeight/im.naturalWidth; rerender(); }; im.src = s.src; }
   });
+  var tb = document.createElement('button'); tb.type='button'; tb.className = 'sealbtn txt'+(tool==='text'?' on':'');
+  tb.innerHTML = '<span class="ico">Ａ</span><span>文字を入れる<span class="mm">日付・氏名・金額など</span></span>';
+  tb.onclick = function(){ tool = 'text'; renderStampBar(); say('文字を入れる場所をタップしてください'); };
+  bar.appendChild(tb);
   var add = document.createElement('button'); add.type='button'; add.className='sealbtn add'; add.textContent = '＋ 印鑑を作る'; add.onclick = function(){ openSheet('mk'); drawPreview(); };
   bar.appendChild(add);
 }
@@ -353,26 +392,39 @@ $('mkgo').addEventListener('click', function(){
 // ---------- PDF 表示 ----------
 var pdfDoc = null, srcBytes = null, srcName = '', isSample = false, pageInfo = [], placed = [], sel = null;
 function say(t, err){ $('msg').textContent = t||''; $('msg').className = 'msg'+(err?' err':''); }
-function refreshCount(){ $('cnt').textContent = placed.length ? '置いた印影 '+placed.length+' 個。' : ''; $('save').disabled = !placed.length; }
+function refreshCount(){ $('cnt').textContent = placed.length ? '置いたもの '+placed.length+' 個。' : ''; $('save').disabled = !placed.length; }
 function select(p){
   sel = p; placed.forEach(function(q){ q.el.classList.toggle('sel', q===p); });
   $('ctl').style.display = p ? '' : 'none';
-  if (p){ var mm = Math.round(p.w*pageInfo[p.page].mmW*2)/2; $('sz').value=mm; $('szv').textContent=mm; $('op').value=Math.round(p.opacity*100); $('opv').textContent=$('op').value; }
+  if (p){
+    $('edit').style.display = p.kind==='text' ? '' : 'none';
+    if (p.kind==='text'){ $('sz').min=2; $('sz').max=20; $('sz').value=p.sizeMm; $('szv').textContent=p.sizeMm; }
+    else { $('sz').min=8; $('sz').max=120; var mm = Math.round(p.w*pageInfo[p.page].mmW*2)/2; $('sz').value=mm; $('szv').textContent=mm; }
+    $('op').value=Math.round(p.opacity*100); $('opv').textContent=$('op').value;
+  }
 }
-function layout(p){ var i=pageInfo[p.page]; if(!i) return; var a=aspect[p.stampId]||1; p.el.style.left=(p.x*i.W)+'px'; p.el.style.top=(p.y*i.H)+'px'; p.el.style.width=(p.w*i.W)+'px'; p.el.style.height=(p.w*i.W*a)+'px'; p.el.style.opacity=p.opacity; }
+function asp(p){ return p.aspect || aspect[p.stampId] || 1; }
+function layout(p){ var i=pageInfo[p.page]; if(!i) return; var a=asp(p); p.el.style.left=(p.x*i.W)+'px'; p.el.style.top=(p.y*i.H)+'px'; p.el.style.width=(p.w*i.W)+'px'; p.el.style.height=(p.w*i.W*a)+'px'; p.el.style.opacity=p.opacity; }
 function rerender(){ placed.forEach(layout); }
-function clamp(p){ var i=pageInfo[p.page]; var a=aspect[p.stampId]||1; var h=p.w*i.W*a/i.H; p.x=Math.min(Math.max(p.x,-p.w*0.5),1-p.w*0.5); p.y=Math.min(Math.max(p.y,-h*0.5),1-h*0.5); }
+function clamp(p){ var i=pageInfo[p.page]; var a=asp(p); var h=p.w*i.W*a/i.H; p.x=Math.min(Math.max(p.x,-p.w*0.5),1-p.w*0.5); p.y=Math.min(Math.max(p.y,-h*0.5),1-h*0.5); }
 function addSeal(pi, fx, fy){
+  if (tool === 'text'){ openTextEditor(null, { page:pi, fx:fx, fy:fy }); return; }
   if (!curStamp){ say('先に印鑑を選んでください', true); return; }
-  if (placed.length >= 30){ say('印影は最大30個までです', true); return; }
+  if (placed.length >= 60){ say('置けるのは最大60個までです', true); return; }
   var info = pageInfo[pi], w = curStamp.mm/info.mmW, a = aspect[curStamp.id]||1;
-  var p = { page:pi, x:fx-w/2, y:fy-(w*info.W*a)/(2*info.H), w:w, stampId:curStamp.id, src:curStamp.src, opacity:1 };
-  var el = document.createElement('div'); el.className='seal';
+  var p = { kind:'stamp', page:pi, x:fx-w/2, y:fy-(w*info.W*a)/(2*info.H), w:w, stampId:curStamp.id, src:curStamp.src, opacity:1 };
+  attach(p);
+}
+/** 配置（印影・文字）の要素を作ってページに載せる */
+function attach(p){
+  var info = pageInfo[p.page];
+  var el = document.createElement('div'); el.className='seal'+(p.kind==='text'?' text':'');
   el.innerHTML = '<img alt="" draggable="false"><button type="button" class="x" aria-label="外す">×</button>'; el.querySelector('img').src = p.src;
   p.el = el; info.wrap.appendChild(el);
   el.querySelector('.x').addEventListener('pointerdown', function(e){ e.stopPropagation(); e.preventDefault(); removeSeal(p); });
   el.addEventListener('pointerdown', function(e){
     e.stopPropagation(); e.preventDefault(); select(p); el.setPointerCapture(e.pointerId);
+    var now = Date.now(); if (p.kind==='text' && now-(p.lastTap||0) < 350){ p.lastTap = 0; openTextEditor(p); return; } p.lastTap = now;
     var sx=e.clientX, sy=e.clientY, ox=p.x, oy=p.y;
     function mv(ev){ p.x=ox+(ev.clientX-sx)/info.W; p.y=oy+(ev.clientY-sy)/info.H; clamp(p); layout(p); }
     function up(){ el.removeEventListener('pointermove',mv); el.removeEventListener('pointerup',up); el.removeEventListener('pointercancel',up); }
@@ -383,9 +435,70 @@ function addSeal(pi, fx, fy){
 function removeSeal(p){ var i=placed.indexOf(p); if(i<0) return; placed.splice(i,1); p.el.remove(); if(sel===p) select(null); refreshCount(); }
 $('del').onclick = function(){ if (sel) removeSeal(sel); };
 $('clear').onclick = function(){ placed.slice().forEach(removeSeal); };
-$('sz').oninput = function(){ if(!sel) return; var i=pageInfo[sel.page], a=aspect[sel.stampId]||1; var cx=sel.x+sel.w/2, cy=sel.y+(sel.w*i.W*a)/(2*i.H); sel.w=Number($('sz').value)/i.mmW; $('szv').textContent=$('sz').value; sel.x=cx-sel.w/2; sel.y=cy-(sel.w*i.W*a)/(2*i.H); clamp(sel); layout(sel); };
+$('edit').onclick = function(){ if (sel && sel.kind==='text') openTextEditor(sel); };
+$('sz').oninput = function(){ if(!sel) return;
+  if (sel.kind==='text'){ sel.sizeMm = Number($('sz').value); $('szv').textContent = sel.sizeMm; applyText(sel); return; }
+  var i=pageInfo[sel.page], a=asp(sel); var cx=sel.x+sel.w/2, cy=sel.y+(sel.w*i.W*a)/(2*i.H); sel.w=Number($('sz').value)/i.mmW; $('szv').textContent=$('sz').value; sel.x=cx-sel.w/2; sel.y=cy-(sel.w*i.W*a)/(2*i.H); clamp(sel); layout(sel); };
 $('op').oninput = function(){ if(!sel) return; sel.opacity=Number($('op').value)/100; $('opv').textContent=$('op').value; layout(sel); };
 document.addEventListener('keydown', function(e){ if ((e.key==='Delete'||e.key==='Backspace') && sel && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); removeSeal(sel); } });
+// ---------- 文字を入れる ----------
+var FONT_PX = 96;   // 描画解像度。1文字の高さ sizeMm に相当
+function renderText(o){
+  var cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+  var lines = (o.text||'').replace(/\r/g,'').split('\n'); if (!lines.length) lines = [''];
+  var font = (o.bold?'700 ':'400 ')+FONT_PX+'px '+(o.face==='mincho'?FONT_M:FONT_G);
+  ctx.font = font;
+  var pad = Math.round(FONT_PX*0.12), lh = Math.round(FONT_PX*1.3);
+  var maxW = 1; lines.forEach(function(l){ maxW = Math.max(maxW, ctx.measureText(l||' ').width); });
+  cv.width = Math.ceil(maxW + pad*2); cv.height = lines.length*lh + pad*2;
+  ctx = cv.getContext('2d'); ctx.font = font; ctx.fillStyle = o.color; ctx.textBaseline = 'middle';
+  lines.forEach(function(l, i){ ctx.fillText(l, pad, pad + i*lh + lh/2); });
+  return { src: cv.toDataURL('image/png'), aspect: cv.height/cv.width, widthMm: cv.width/FONT_PX*o.sizeMm };
+}
+function applyText(p){
+  var r = renderText({ text:p.text, face:p.face, color:p.color, bold:p.bold, sizeMm:p.sizeMm });
+  p.src = r.src; p.aspect = r.aspect; p.w = r.widthMm / pageInfo[p.page].mmW;
+  if (p.el){ p.el.querySelector('img').src = p.src; clamp(p); layout(p); }
+}
+var txTarget = null, txAt = null;
+function tColor(){ return $('tcolor').value; }
+function openTextEditor(p, at){
+  txTarget = p || null; txAt = at || null;
+  var d = p ? p : textDefaults;
+  $('txtitle').textContent = p ? '文字を編集' : '文字を入れる';
+  $('txgo').textContent = p ? '書き直す' : 'この文字を置く';
+  $('ttext').value = p ? p.text : ''; $('tsize').value = p ? p.sizeMm : d.size; $('tfont').value = p ? p.face : d.face;
+  $('tbold').checked = p ? !!p.bold : !!d.bold; setTColor(p ? p.color : d.color); $('txerr').textContent = '';
+  tPreview(); openSheet('tx'); setTimeout(function(){ $('ttext').focus(); }, 50);
+}
+function setTColor(c){ $('tcolor').value = c; Array.prototype.forEach.call($('tcolors').querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.c===c); }); }
+$('tcolors').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; setTColor(b.dataset.c); tPreview(); });
+$('tcolor').addEventListener('input', function(){ setTColor($('tcolor').value); tPreview(); });
+function tOpts(){ return { text:$('ttext').value, face:$('tfont').value, color:tColor(), bold:$('tbold').checked, sizeMm:parseFloat($('tsize').value) }; }
+function tPreview(){
+  var o = tOpts(); var box = $('tpv');
+  if (!o.text.trim()){ box.innerHTML = '<span style="color:var(--ink-2);font-size:12px">ここに仕上がりが出ます</span>'; return; }
+  var draw = function(){ var r = renderText(o); box.innerHTML = '<img alt="">'; box.querySelector('img').src = r.src; };
+  if (document.fonts && document.fonts.load) document.fonts.load((o.bold?'700 ':'400 ')+'40px '+(o.face==='mincho'?'"Shippori Mincho"':'"Zen Kaku Gothic New"')).then(draw, draw); else draw();
+}
+['ttext','tsize','tfont','tbold'].forEach(function(id){ $(id).addEventListener('input', tPreview); });
+$('txgo').addEventListener('click', function(){
+  var o = tOpts();
+  if (!o.text.trim()){ $('txerr').textContent = '文字を入力してください'; return; }
+  if (!(o.sizeMm >= 1 && o.sizeMm <= 30)){ $('txerr').textContent = '文字の高さは 1〜30mm で入力してください'; return; }
+  textDefaults = { size:o.sizeMm, face:o.face, color:o.color, bold:o.bold };
+  if (txTarget){ txTarget.text=o.text; txTarget.face=o.face; txTarget.color=o.color; txTarget.bold=o.bold; txTarget.sizeMm=o.sizeMm; applyText(txTarget); select(txTarget); }
+  else if (txAt){
+    if (placed.length >= 60){ $('txerr').textContent = '置けるのは最大60個までです'; return; }
+    var info = pageInfo[txAt.page];
+    var p = { kind:'text', page:txAt.page, x:0, y:0, w:0.1, opacity:1, text:o.text, face:o.face, color:o.color, bold:o.bold, sizeMm:o.sizeMm, src:'', aspect:1 };
+    var r = renderText(o); p.src = r.src; p.aspect = r.aspect; p.w = r.widthMm/info.mmW;
+    p.x = txAt.fx; p.y = txAt.fy - (p.w*info.W*p.aspect)/(2*info.H);     // タップ位置を文字の左端・中央に
+    attach(p);
+  }
+  closeSheet('tx'); say('');
+});
+
 function bindPage(wrap, idx){
   wrap.addEventListener('pointerdown', function(e){
     if (e.target.closest && e.target.closest('.seal')) return;
@@ -492,7 +605,7 @@ $('save').addEventListener('click', function(){
     $('share').style.display = canShare ? '' : 'none';
     $('share').onclick = function(){ navigator.share({ files:[f], title:lastName }).catch(function(){}); };
     $('result').classList.add('show');
-    addHistory({ t: new Date().toISOString(), name: srcName || '見本', out: lastName, n: placed.length, flat: flatten, pages: placed.map(function(p){ return p.page+1; }) });
+    addHistory({ t: new Date().toISOString(), name: srcName || '見本', out: lastName, n: placed.length, nt: placed.filter(function(p){ return p.kind==='text'; }).length, flat: flatten, pages: placed.map(function(p){ return p.page+1; }) });
     say('押印済のPDFができました。ダウンロードまたは共有で保存してください');
   }).catch(function(e){ say('押印に失敗しました：'+(e&&e.message||e)+'（パスワード付きや壊れたPDFの可能性）', true); })
   .then(function(){ btn.disabled = !placed.length; btn.textContent = '押印して保存'; });
@@ -503,8 +616,10 @@ function stampVector(){
     var pages = doc.getPages(), cache = {};
     var chain = Promise.resolve();
     placed.forEach(function(p){ chain = chain.then(function(){
-      var st = stamps.find(function(s){ return s.id===p.stampId; }); var src = st ? st.src : p.src;
-      return (cache[p.stampId] || (cache[p.stampId] = doc.embedPng(dataUrlBytes(src)))).then(function(img){
+      var key = p.kind==='text' ? null : p.stampId;
+      var st = key ? stamps.find(function(s){ return s.id===p.stampId; }) : null; var src = st ? st.src : p.src;
+      var emb = key ? (cache[key] || (cache[key] = doc.embedPng(dataUrlBytes(src)))) : doc.embedPng(dataUrlBytes(src));
+      return emb.then(function(img){
         var page = pages[p.page], crop = page.getCropBox(), rot = page.getRotation().angle, r=((rot%360)+360)%360;
         var dispW = (r===90||r===270)?crop.height:crop.width, dispH = (r===90||r===270)?crop.width:crop.height;
         var wpt = p.w*dispW, hpt = wpt*(img.height/img.width);
@@ -548,13 +663,13 @@ function openHistory(){
   try { h = JSON.parse(localStorage.getItem(LS_HIST)||'[]'); } catch(e){}
   if (!h.length){ ul.innerHTML = '<li><span class="t">—</span><span>まだありません</span></li>'; }
   h.forEach(function(r){ var li=document.createElement('li'); var d=new Date(r.t); var t=d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-    li.innerHTML = '<span class="t">'+t+'</span><span>'+esc(r.out)+'</span><span class="d">元: '+esc(r.name)+' ／ 印影 '+r.n+' 個（p.'+(r.pages||[]).join(', p.')+'）'+(r.flat?' ／ 画像化':'')+'</span>'; ul.appendChild(li); });
+    li.innerHTML = '<span class="t">'+t+'</span><span>'+esc(r.out)+'</span><span class="d">元: '+esc(r.name)+' ／ 印影・文字 '+r.n+' 個'+(r.nt?'（うち文字 '+r.nt+'）':'')+'（p.'+(r.pages||[]).join(', p.')+'）'+(r.flat?' ／ 画像化':'')+'</span>'; ul.appendChild(li); });
   openSheet('hs');
 }
 window.openHistory = openHistory;
 window.openSheet = function(id){ $(id).classList.add('show'); };
 window.closeSheet = function(id){ $(id).classList.remove('show'); };
-document.addEventListener('keydown', function(e){ if (e.key==='Escape'){ closeSheet('mk'); closeSheet('hs'); } });
+document.addEventListener('keydown', function(e){ if (e.key==='Escape'){ closeSheet('mk'); closeSheet('hs'); closeSheet('tx'); } });
 
 // ---------- 起動 ----------
 loadStamps();
