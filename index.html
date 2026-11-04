@@ -49,6 +49,7 @@ h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-
 .pno{position:absolute;right:6px;top:6px;font-size:11px;color:#fff;background:rgba(0,0,0,.5);padding:2px 8px;border-radius:10px;pointer-events:none;font-variant-numeric:tabular-nums}
 .seal{position:absolute;touch-action:none;cursor:move;border:2px dashed transparent;border-radius:4px}
 .seal img{width:100%;height:100%;display:block;pointer-events:none}
+.seal::before{content:"";position:absolute;inset:-10px;}   /* 指で触れる余白（見た目には出ない） */
 .seal.sel{border-color:var(--shu);box-shadow:0 0 0 2px rgba(255,255,255,.95)}
 .seal .x{position:absolute;top:-30px;right:-6px;width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:#1f1b17;color:#fff;font-size:14px;line-height:20px;text-align:center;padding:0;display:none;touch-action:none;box-shadow:0 1px 4px rgba(0,0,0,.4)}
 .seal.sel .x{display:block}
@@ -159,6 +160,7 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
       <label>大きさ<input type="range" id="sz" min="8" max="120" step="0.5"><span class="v"><span id="szv">18</span>mm</span></label>
       <label>濃さ<input type="range" id="op" min="30" max="100" step="5"><span class="v"><span id="opv">100</span>%</span></label>
       <span class="nudge" aria-label="位置の微調整"><button type="button" data-d="0,-1" title="上へ 0.5mm">▲</button><button type="button" data-d="-1,0" title="左へ 0.5mm">◀</button><button type="button" data-d="1,0" title="右へ 0.5mm">▶</button><button type="button" data-d="0,1" title="下へ 0.5mm">▼</button></span>
+      <button type="button" id="dup" title="複製（Ctrl/⌘+C → V でも）">複製</button>
       <button type="button" id="edit" style="display:none">編集</button>
       <button type="button" id="del">外す</button>
     </div>
@@ -176,7 +178,7 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
       <div class="acts"><a class="dl" id="dl" href="#" download>ダウンロード</a><button type="button" id="share" style="display:none">共有…</button></div>
       <div class="note" style="margin-top:6px">iPhoneでは「共有…」からファイルに保存・メール・LINEへ送れます。</div>
     </div>
-    <div class="note"><span id="cnt"></span>選んだものは矢印キー（Shiftで大きく）か ▲◀▶▼ で微調整できます。原本のPDFは変更されません。電子印鑑は見た目の押印で、電子署名（改竄検知・本人証明）ではありません。印鑑と履歴はこの端末のブラウザにだけ保存されます。</div>
+    <div class="note"><span id="cnt"></span>選んだものは矢印キー（Shiftで大きく）か ▲◀▶▼ で微調整、「複製」か ⌘/Ctrl+C → V でコピーできます。原本のPDFは変更されません。電子印鑑は見た目の押印で、電子署名（改竄検知・本人証明）ではありません。印鑑と履歴はこの端末のブラウザにだけ保存されます。</div>
   </aside>
 </div>
 
@@ -215,7 +217,7 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
 <div class="sheet" id="tx" onclick="if(event.target===this)closeSheet('tx')">
   <div class="card tx">
     <h3 id="txtitle">文字を入れる</h3>
-    <textarea id="ttext" placeholder="例: 2026年10月30日&#10;改行もできます"></textarea>
+    <textarea id="ttext" placeholder="例: 2026年10月30日（Enterで確定、改行は Shift+Enter）"></textarea>
     <div class="frow">
       <div><label>文字の高さ（mm）</label><input type="text" id="tsize" inputmode="decimal" value="4"></div>
       <div><label>書体</label><select id="tfont"><option value="gothic">ゴシック</option><option value="mincho">明朝</option></select></div>
@@ -226,11 +228,12 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
         <input type="color" id="tcolor" value="#1f1b17" aria-label="その他の色" style="width:30px;height:30px;padding:0;border:1px solid var(--line-2);border-radius:50%;background:transparent">
       </div></div>
       <div><label>&nbsp;</label><label style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--ink)"><input type="checkbox" id="tbold">太字</label></div>
+      <div class="full" style="display:flex;gap:10px;align-items:center;font-size:13px"><label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink)"><input type="checkbox" id="tbg">背景を塗りつぶす（下の文字を隠す）</label><input type="color" id="tbgcolor" value="#ffffff" aria-label="背景の色" style="width:30px;height:30px;padding:0;border:1px solid var(--line-2);border-radius:6px;background:transparent"></div>
     </div>
     <div class="pvt" id="tpv"><span style="color:var(--ink-2);font-size:12px">ここに仕上がりが出ます</span></div>
     <div class="bar"><button type="button" class="sub" onclick="closeSheet('tx')">閉じる</button><button type="button" class="shu save" id="txgo">この文字を置く</button></div>
     <div class="msg err" id="txerr"></div>
-    <div class="note">4mm ≒ 11pt（書類の本文くらい）。日付・氏名・金額・「済」などの書き込みに。</div>
+    <div class="note">Enterで確定、改行は Shift+Enter。4mm ≒ 11pt（書類の本文くらい）。背景を塗ると、元の文字の上に書き直すときに下が隠れる。</div>
   </div>
 </div>
 
@@ -257,7 +260,7 @@ var LS_STAMPS = 'inkan.stamps', LS_HIST = 'inkan.history';
 var stamps = [];   // {id,label,src,mm,builtin}
 var curStamp = null;
 var tool = 'stamp';          // 'stamp' | 'text'
-var textDefaults = { size:4, face:'gothic', color:'#1f1b17', bold:false };
+var textDefaults = { size:4, face:'gothic', color:'#1f1b17', bold:false, bg:null };
 function loadStamps(){
   stamps = [];
   if (BUILTIN_SEAL) stamps.push({ id:'gaku', label:'社印（株式会社GAKU）', src:'data:image/png;base64,'+BUILTIN_SEAL, mm:17.8, builtin:true });
@@ -428,8 +431,11 @@ function attach(p){
   el.addEventListener('pointerdown', function(e){
     e.stopPropagation(); e.preventDefault(); select(p); el.setPointerCapture(e.pointerId);
     var now = Date.now(); if (p.kind==='text' && now-(p.lastTap||0) < 350){ p.lastTap = 0; openTextEditor(p); return; } p.lastTap = now;
-    var sx=e.clientX, sy=e.clientY, ox=p.x, oy=p.y;
-    function mv(ev){ p.x=ox+(ev.clientX-sx)/info.W; p.y=oy+(ev.clientY-sy)/info.H; clamp(p); layout(p); }
+    var sx=e.clientX, sy=e.clientY, ox=p.x, oy=p.y, started=false;
+    function mv(ev){
+      if (!started){ if (Math.abs(ev.clientX-sx) < 4 && Math.abs(ev.clientY-sy) < 4) return; started = true; }
+      p.x=ox+(ev.clientX-sx)/info.W; p.y=oy+(ev.clientY-sy)/info.H; clamp(p); layout(p);
+    }
     function up(){ el.removeEventListener('pointermove',mv); el.removeEventListener('pointerup',up); el.removeEventListener('pointercancel',up); }
     el.addEventListener('pointermove',mv); el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up);
   });
@@ -439,13 +445,34 @@ function removeSeal(p){ var i=placed.indexOf(p); if(i<0) return; placed.splice(i
 $('del').onclick = function(){ if (sel) removeSeal(sel); };
 $('clear').onclick = function(){ placed.slice().forEach(removeSeal); };
 $('edit').onclick = function(){ if (sel && sel.kind==='text') openTextEditor(sel); };
+// コピー・貼り付け（アプリ内クリップボード）。複製ボタン＝コピーして少し右下に貼る
+var clip = null;
+function copySel(){ if (!sel) return false; clip = {}; Object.keys(sel).forEach(function(k){ if (k!=='el' && k!=='lastTap') clip[k] = sel[k]; }); return true; }
+function pasteClip(){
+  if (!clip) return; if (placed.length >= 60){ say('置けるのは最大60個までです', true); return; }
+  var p = {}; Object.keys(clip).forEach(function(k){ p[k] = clip[k]; });
+  var i = pageInfo[p.page]; if (!i) return;
+  p.x += 3/i.mmW; p.y += 3/(i.mmW*i.H/i.W);      // 3mm 右下にずらす
+  attach(p); clip.x = p.x; clip.y = p.y;         // 続けて貼ると階段状に
+  say('貼り付けました');
+}
+$('dup').onclick = function(){ if (copySel()) pasteClip(); };
+document.addEventListener('keydown', function(e){
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  if (!(e.metaKey || e.ctrlKey)) return;
+  if (e.key==='c' || e.key==='C'){ if (copySel()){ e.preventDefault(); say('コピーしました（⌘/Ctrl+V で貼り付け）'); } }
+  else if (e.key==='v' || e.key==='V'){ if (clip){ e.preventDefault(); pasteClip(); } }
+  else if (e.key==='d' || e.key==='D'){ if (copySel()){ e.preventDefault(); pasteClip(); } }
+});
 // 微調整: 矢印キー 0.5mm、Shift で 5mm。画面の十字ボタンも同じ
 function nudge(dx, dy, mm){ if (!sel) return; var i = pageInfo[sel.page]; var mmH = i.mmW * i.H / i.W; sel.x += dx*mm/i.mmW; sel.y += dy*mm/mmH; clamp(sel); layout(sel); }
 document.querySelectorAll('.nudge button').forEach(function(b){
   var d = b.dataset.d.split(',').map(Number), timer = null;
   function go(){ nudge(d[0], d[1], 0.5); }
-  b.addEventListener('pointerdown', function(e){ e.preventDefault(); go(); timer = setInterval(go, 120); });
-  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){ b.addEventListener(ev, function(){ clearInterval(timer); timer = null; }); });
+  function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+  b.addEventListener('pointerdown', function(e){ e.preventDefault(); stop(); go(); timer = setInterval(go, 120); });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){ b.addEventListener(ev, stop); });
+  document.addEventListener('pointerup', stop); document.addEventListener('pointercancel', stop); window.addEventListener('blur', stop);
 });
 document.addEventListener('keydown', function(e){
   if (!sel || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
@@ -467,12 +494,14 @@ function renderText(o){
   var pad = Math.round(FONT_PX*0.12), lh = Math.round(FONT_PX*1.3);
   var maxW = 1; lines.forEach(function(l){ maxW = Math.max(maxW, ctx.measureText(l||' ').width); });
   cv.width = Math.ceil(maxW + pad*2); cv.height = lines.length*lh + pad*2;
-  ctx = cv.getContext('2d'); ctx.font = font; ctx.fillStyle = o.color; ctx.textBaseline = 'middle';
+  ctx = cv.getContext('2d');
+  if (o.bg){ ctx.fillStyle = o.bg; ctx.fillRect(0, 0, cv.width, cv.height); }
+  ctx.font = font; ctx.fillStyle = o.color; ctx.textBaseline = 'middle';
   lines.forEach(function(l, i){ ctx.fillText(l, pad, pad + i*lh + lh/2); });
   return { src: cv.toDataURL('image/png'), aspect: cv.height/cv.width, widthMm: cv.width/FONT_PX*o.sizeMm };
 }
 function applyText(p){
-  var r = renderText({ text:p.text, face:p.face, color:p.color, bold:p.bold, sizeMm:p.sizeMm });
+  var r = renderText({ text:p.text, face:p.face, color:p.color, bold:p.bold, sizeMm:p.sizeMm, bg:p.bg||null });
   p.src = r.src; p.aspect = r.aspect; p.w = r.widthMm / pageInfo[p.page].mmW;
   if (p.el){ p.el.querySelector('img').src = p.src; clamp(p); layout(p); }
 }
@@ -485,29 +514,32 @@ function openTextEditor(p, at){
   $('txgo').textContent = p ? '書き直す' : 'この文字を置く';
   $('ttext').value = p ? p.text : ''; $('tsize').value = p ? p.sizeMm : d.size; $('tfont').value = p ? p.face : d.face;
   $('tbold').checked = p ? !!p.bold : !!d.bold; setTColor(p ? p.color : d.color); $('txerr').textContent = '';
+  var bg = p ? (p.bg||null) : (d.bg||null); $('tbg').checked = !!bg; if (bg) $('tbgcolor').value = bg;
   tPreview(); openSheet('tx'); setTimeout(function(){ $('ttext').focus(); }, 50);
 }
 function setTColor(c){ $('tcolor').value = c; Array.prototype.forEach.call($('tcolors').querySelectorAll('button'), function(b){ b.classList.toggle('on', b.dataset.c===c); }); }
 $('tcolors').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; setTColor(b.dataset.c); tPreview(); });
 $('tcolor').addEventListener('input', function(){ setTColor($('tcolor').value); tPreview(); });
-function tOpts(){ return { text:$('ttext').value, face:$('tfont').value, color:tColor(), bold:$('tbold').checked, sizeMm:parseFloat($('tsize').value) }; }
+function tOpts(){ return { text:$('ttext').value, face:$('tfont').value, color:tColor(), bold:$('tbold').checked, sizeMm:parseFloat($('tsize').value), bg: $('tbg').checked ? $('tbgcolor').value : null }; }
 function tPreview(){
   var o = tOpts(); var box = $('tpv');
   if (!o.text.trim()){ box.innerHTML = '<span style="color:var(--ink-2);font-size:12px">ここに仕上がりが出ます</span>'; return; }
   var draw = function(){ var r = renderText(o); box.innerHTML = '<img alt="">'; box.querySelector('img').src = r.src; };
   if (document.fonts && document.fonts.load) document.fonts.load((o.bold?'700 ':'400 ')+'40px '+(o.face==='mincho'?'"Shippori Mincho"':'"Zen Kaku Gothic New"')).then(draw, draw); else draw();
 }
-['ttext','tsize','tfont','tbold'].forEach(function(id){ $(id).addEventListener('input', tPreview); });
+['ttext','tsize','tfont','tbold','tbg','tbgcolor'].forEach(function(id){ $(id).addEventListener('input', tPreview); });
+// Enter で確定、Shift+Enter で改行
+$('ttext').addEventListener('keydown', function(e){ if (e.key==='Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); $('txgo').click(); } });
 $('txgo').addEventListener('click', function(){
   var o = tOpts();
   if (!o.text.trim()){ $('txerr').textContent = '文字を入力してください'; return; }
   if (!(o.sizeMm >= 1 && o.sizeMm <= 30)){ $('txerr').textContent = '文字の高さは 1〜30mm で入力してください'; return; }
-  textDefaults = { size:o.sizeMm, face:o.face, color:o.color, bold:o.bold };
-  if (txTarget){ txTarget.text=o.text; txTarget.face=o.face; txTarget.color=o.color; txTarget.bold=o.bold; txTarget.sizeMm=o.sizeMm; applyText(txTarget); select(txTarget); }
+  textDefaults = { size:o.sizeMm, face:o.face, color:o.color, bold:o.bold, bg:o.bg };
+  if (txTarget){ txTarget.text=o.text; txTarget.face=o.face; txTarget.color=o.color; txTarget.bold=o.bold; txTarget.sizeMm=o.sizeMm; txTarget.bg=o.bg; applyText(txTarget); select(txTarget); }
   else if (txAt){
     if (placed.length >= 60){ $('txerr').textContent = '置けるのは最大60個までです'; return; }
     var info = pageInfo[txAt.page];
-    var p = { kind:'text', page:txAt.page, x:0, y:0, w:0.1, opacity:1, text:o.text, face:o.face, color:o.color, bold:o.bold, sizeMm:o.sizeMm, src:'', aspect:1 };
+    var p = { kind:'text', page:txAt.page, x:0, y:0, w:0.1, opacity:1, text:o.text, face:o.face, color:o.color, bold:o.bold, sizeMm:o.sizeMm, bg:o.bg, src:'', aspect:1 };
     var r = renderText(o); p.src = r.src; p.aspect = r.aspect; p.w = r.widthMm/info.mmW;
     p.x = txAt.fx; p.y = txAt.fy - (p.w*info.W*p.aspect)/(2*info.H);     // タップ位置を文字の左端・中央に
     attach(p);
