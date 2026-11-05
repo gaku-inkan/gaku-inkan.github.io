@@ -67,6 +67,18 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
 .sealbtn.on{border-color:var(--shu);background:var(--shu-soft)}
 .sealbtn .mm{font-size:10.5px;color:var(--ink-2);display:block;font-variant-numeric:tabular-nums}
 .sealbtn.add{border-style:dashed;color:var(--ink-2)}
+.pw.draw{touch-action:none;cursor:crosshair}
+.pw svg.ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.shopts{display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap}
+.shopts label{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.shopts select{width:auto;padding:5px 8px}
+.shopts .sw{display:inline-flex;gap:4px}
+.shopts .sw button{width:24px;height:24px;border-radius:50%;padding:0;border:2px solid var(--line-2)}
+.shopts .sw button.on{border-color:var(--shu)}
+.shopts .sw button.none{background:linear-gradient(135deg,transparent 45%,var(--shu) 45%,var(--shu) 55%,transparent 55%),var(--surface)}
+.shopts .act{margin-left:auto;display:flex;gap:6px}
+.sealbtn.shape .ico{width:38px;height:38px;display:grid;place-items:center;background:#fff;border-radius:8px;border:1px solid var(--line)}
+.sealbtn.shape .ico svg{width:26px;height:26px;stroke:#1f1b17;fill:none;stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round}
 .sealbtn.txt .ico{width:38px;height:38px;display:grid;place-items:center;background:#fff;border-radius:8px;border:1px solid var(--line);font-family:var(--mincho);font-size:22px;font-weight:700;color:#1f1b17}
 .seal.text{border-color:rgba(0,0,0,.18)}
 .seal.text.sel{border-color:var(--shu)}
@@ -156,6 +168,12 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
       <h2>印鑑・文字（選んでページをタップ）</h2>
       <div class="seals" id="seals"></div>
     </div>
+    <div class="shopts" id="shopts" style="display:none">
+      <label>線<select id="shw"><option value="0.2">細 0.2mm</option><option value="0.35" selected>普通 0.35mm</option><option value="0.6">太 0.6mm</option><option value="1">極太 1mm</option></select></label>
+      <label>色<span class="sw" id="shcolors"><button type="button" data-c="#1f1b17" style="background:#1f1b17" class="on" aria-label="黒"></button><button type="button" data-c="#c8322b" style="background:#c8322b" aria-label="朱"></button><button type="button" data-c="#1d4ed8" style="background:#1d4ed8" aria-label="青"></button></span></label>
+      <label>塗り<span class="sw" id="shfills"><button type="button" data-c="" class="none on" aria-label="なし"></button><button type="button" data-c="#ffffff" style="background:#fff" aria-label="白"></button><button type="button" data-c="#fde68a" style="background:#fde68a" aria-label="黄"></button><button type="button" data-c="#c8322b" style="background:#c8322b" aria-label="朱"></button></span></label>
+      <span class="act" id="polyact" style="display:none"><button type="button" id="polydone">完成</button><button type="button" id="polycancel">取消</button></span>
+    </div>
     <div class="ctl" id="ctl" style="display:none">
       <label>大きさ<input type="range" id="sz" min="8" max="120" step="0.5"><span class="v"><span id="szv">18</span>mm</span></label>
       <label>濃さ<input type="range" id="op" min="30" max="100" step="5"><span class="v"><span id="opv">100</span>%</span></label>
@@ -178,7 +196,7 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
       <div class="acts"><a class="dl" id="dl" href="#" download>ダウンロード</a><button type="button" id="share" style="display:none">共有…</button></div>
       <div class="note" style="margin-top:6px">iPhoneでは「共有…」からファイルに保存・メール・LINEへ送れます。</div>
     </div>
-    <div class="note"><span id="cnt"></span>選んだものは矢印キー（Shiftで大きく）か ▲◀▶▼ で微調整、「複製」か ⌘/Ctrl+C → V でコピーできます。原本のPDFは変更されません。電子印鑑は見た目の押印で、電子署名（改竄検知・本人証明）ではありません。印鑑と履歴はこの端末のブラウザにだけ保存されます。</div>
+    <div class="note"><span id="cnt"></span>直線はShiftを押しながらで水平・垂直。選んだものは矢印キー（Shiftで大きく）か ▲◀▶▼ で微調整、「複製」か ⌘/Ctrl+C → V でコピーできます。原本のPDFは変更されません。電子印鑑は見た目の押印で、電子署名（改竄検知・本人証明）ではありません。印鑑と履歴はこの端末のブラウザにだけ保存されます。</div>
   </aside>
 </div>
 
@@ -280,14 +298,24 @@ function renderStampBar(){
     var b = document.createElement('button'); b.type='button'; b.className = 'sealbtn'+(tool==='stamp'&&curStamp&&curStamp.id===s.id?' on':'');
     b.innerHTML = '<img alt=""><span>'+esc(s.label)+'<span class="mm">'+s.mm+' mm</span></span>';
     b.querySelector('img').src = s.src;
-    b.onclick = function(){ curStamp = s; tool = 'stamp'; renderStampBar(); say('「'+s.label+'」を選択中。押したい場所をタップ'); };
+    b.onclick = function(){ cancelPoly(); curStamp = s; tool = 'stamp'; renderStampBar(); say('「'+s.label+'」を選択中。押したい場所をタップ'); };
     bar.appendChild(b);
     if (!aspect[s.id]) { var im = new Image(); im.onload = function(){ aspect[s.id] = im.naturalHeight/im.naturalWidth; rerender(); }; im.src = s.src; }
   });
   var tb = document.createElement('button'); tb.type='button'; tb.className = 'sealbtn txt'+(tool==='text'?' on':'');
   tb.innerHTML = '<span class="ico">Ａ</span><span>文字を入れる<span class="mm">日付・氏名・金額など</span></span>';
-  tb.onclick = function(){ tool = 'text'; renderStampBar(); say('文字を入れる場所をタップしてください'); };
+  tb.onclick = function(){ cancelPoly(); tool = 'text'; renderStampBar(); say('文字を入れる場所をタップしてください'); };
   bar.appendChild(tb);
+  [['line','直線','<svg viewBox="0 0 24 24"><path d="M4 20L20 4"/></svg>','ドラッグで引く'],
+   ['rect','四角','<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14"/></svg>','ドラッグで描く'],
+   ['poly','多角形','<svg viewBox="0 0 24 24"><path d="M12 3l9 7-3.5 10h-11L3 10z"/></svg>','頂点をタップ']
+  ].forEach(function(d){
+    var b = document.createElement('button'); b.type='button'; b.className = 'sealbtn shape'+(tool===d[0]?' on':'');
+    b.innerHTML = '<span class="ico">'+d[2]+'</span><span>'+d[1]+'<span class="mm">'+d[3]+'</span></span>';
+    b.onclick = function(){ cancelPoly(); select(null); tool = d[0]; renderStampBar(); say(d[0]==='poly' ? '頂点を順にタップ。最初の点に戻るか「完成」で閉じます' : 'ページの上でドラッグして'+d[1]+'を描いてください'); };
+    bar.appendChild(b);
+  });
+  updateShOpts();
   var add = document.createElement('button'); add.type='button'; add.className='sealbtn add'; add.textContent = '＋ 印鑑を作る'; add.onclick = function(){ openSheet('mk'); drawPreview(); };
   bar.appendChild(add);
 }
@@ -402,6 +430,7 @@ function refreshCount(){ $('cnt').textContent = placed.length ? '置いたもの
 function select(p){
   sel = p; placed.forEach(function(q){ q.el.classList.toggle('sel', q===p); });
   $('ctl').style.display = p ? '' : 'none';
+  updateShOpts();
   if (p){
     $('edit').style.display = p.kind==='text' ? '' : 'none';
     if (p.kind==='text'){ $('sz').min=2; $('sz').max=20; $('sz').value=p.sizeMm; $('szv').textContent=p.sizeMm; }
@@ -415,6 +444,8 @@ function rerender(){ placed.forEach(layout); }
 function clamp(p){ var i=pageInfo[p.page]; var a=asp(p); var h=p.w*i.W*a/i.H; p.x=Math.min(Math.max(p.x,-p.w*0.5),1-p.w*0.5); p.y=Math.min(Math.max(p.y,-h*0.5),1-h*0.5); }
 function addSeal(pi, fx, fy){
   if (tool === 'text'){ openTextEditor(null, { page:pi, fx:fx, fy:fy }); return; }
+  if (tool === 'poly'){ polyTap(pi, fx, fy); return; }
+  if (tool === 'line' || tool === 'rect') return;
   if (!curStamp){ say('先に印鑑を選んでください', true); return; }
   if (placed.length >= 60){ say('置けるのは最大60個までです', true); return; }
   var info = pageInfo[pi], w = curStamp.mm/info.mmW, a = aspect[curStamp.id]||1;
@@ -547,9 +578,105 @@ $('txgo').addEventListener('click', function(){
   closeSheet('tx'); say('');
 });
 
+// ---------- 図形（直線・四角・多角形） ----------
+var shStyle = { w:0.35, color:'#1f1b17', fill:'' };
+var K = 8;   // 画像化の解像度 px/mm
+function pageMmH(i){ return i.mmW * i.H / i.W; }
+function overlay(wrap){ var o = wrap.querySelector('svg.ov'); if (!o){ o = document.createElementNS('http://www.w3.org/2000/svg','svg'); o.setAttribute('class','ov'); wrap.appendChild(o); } o.setAttribute('viewBox','0 0 '+wrap.clientWidth+' '+wrap.clientHeight); return o; }
+function clearOverlay(wrap){ var o = wrap.querySelector('svg.ov'); if (o) o.innerHTML=''; }
+function svgEl(tag, attrs){ var el = document.createElementNS('http://www.w3.org/2000/svg', tag); Object.keys(attrs).forEach(function(k){ el.setAttribute(k, attrs[k]); }); return el; }
+function pxStroke(i){ return Math.max(1, shStyle.w * i.W / i.mmW); }
+/** 図形を透過画像にして配置にする。pts は page mm 座標 */
+function makeShape(pi, type, pts){
+  var i = pageInfo[pi], mmH = pageMmH(i), st = shStyle;
+  var xs = pts.map(function(q){ return q[0]; }), ys = pts.map(function(q){ return q[1]; });
+  var pad = st.w/2 + 0.6;
+  var x0 = Math.min.apply(null,xs)-pad, y0 = Math.min.apply(null,ys)-pad, x1 = Math.max.apply(null,xs)+pad, y1 = Math.max.apply(null,ys)+pad;
+  var cv = document.createElement('canvas'); cv.width = Math.max(2, Math.ceil((x1-x0)*K)); cv.height = Math.max(2, Math.ceil((y1-y0)*K));
+  var c = cv.getContext('2d'); c.lineWidth = st.w*K; c.strokeStyle = st.color; c.lineCap = 'round'; c.lineJoin = 'round';
+  var P = pts.map(function(q){ return [(q[0]-x0)*K, (q[1]-y0)*K]; });
+  c.beginPath();
+  if (type==='rect'){ c.rect(P[0][0], P[0][1], P[1][0]-P[0][0], P[1][1]-P[0][1]); }
+  else { P.forEach(function(q,k){ k ? c.lineTo(q[0],q[1]) : c.moveTo(q[0],q[1]); }); if (type==='poly') c.closePath(); }
+  if (st.fill && type!=='line'){ c.fillStyle = st.fill; c.fill(); }
+  c.stroke();
+  var p = { kind:'shape', page:pi, x:x0/i.mmW, y:y0/mmH, w:(x1-x0)/i.mmW, aspect:cv.height/cv.width, opacity:1, src:cv.toDataURL('image/png'),
+            shape:{ type:type, pts:pts.map(function(q){ return [q[0]-x0, q[1]-y0]; }), pad:pad, w:st.w, color:st.color, fill:st.fill } };
+  if (placed.length >= 60){ say('置けるのは最大60個までです', true); return null; }
+  attach(p); say('図形を置きました。続けて描けます。動かすときは図形を一度タップして選んでください');
+  return p;
+}
+/** 選択中の図形の線・色・塗りを変えて描き直す（位置は保つ） */
+function restyleShape(p){
+  var i = pageInfo[p.page], mmH = pageMmH(i), sh = p.shape;
+  var ox = p.x*i.mmW + sh.pad, oy = p.y*mmH + sh.pad;            // 図形本体の原点（mm）
+  var pts = sh.pts.map(function(q){ return [q[0]+ox, q[1]+oy]; });
+  var keepSel = true; removeSeal(p); var np = makeShape(p.page, sh.type, pts); if (np && keepSel) select(np);
+}
+function dragShape(wrap, idx, e){
+  e.preventDefault(); wrap.setPointerCapture(e.pointerId);
+  var i = pageInfo[idx], r = wrap.getBoundingClientRect(), o = overlay(wrap), type = tool;
+  var sx = e.clientX - r.left, sy = e.clientY - r.top, cur = null;
+  var el = svgEl(type==='rect' ? 'rect' : 'line', { stroke: shStyle.color, 'stroke-width': pxStroke(i), fill: (type==='rect' && shStyle.fill) ? shStyle.fill : 'none', 'stroke-linecap':'round' });
+  o.innerHTML = ''; o.appendChild(el);
+  function mv(ev){
+    var x = Math.min(Math.max(ev.clientX - r.left, 0), r.width), y = Math.min(Math.max(ev.clientY - r.top, 0), r.height); cur = [x,y];
+    if (ev.shiftKey && type==='line'){ if (Math.abs(x-sx) > Math.abs(y-sy)) y = sy; else x = sx; cur = [x,y]; }
+    if (type==='rect'){ el.setAttribute('x', Math.min(sx,x)); el.setAttribute('y', Math.min(sy,y)); el.setAttribute('width', Math.abs(x-sx)); el.setAttribute('height', Math.abs(y-sy)); }
+    else { el.setAttribute('x1', sx); el.setAttribute('y1', sy); el.setAttribute('x2', x); el.setAttribute('y2', y); }
+  }
+  function up(){
+    wrap.removeEventListener('pointermove', mv); wrap.removeEventListener('pointerup', up); wrap.removeEventListener('pointercancel', up);
+    clearOverlay(wrap);
+    if (!cur || (Math.abs(cur[0]-sx) < 6 && Math.abs(cur[1]-sy) < 6)) return;   // ほぼ動いていない＝描かない
+    var k = i.mmW / i.W;
+    var a = [sx*k, sy*k], b = [cur[0]*k, cur[1]*k];
+    makeShape(idx, type, type==='rect' ? [[Math.min(a[0],b[0]), Math.min(a[1],b[1])],[Math.max(a[0],b[0]), Math.max(a[1],b[1])]] : [a, b]);
+  }
+  wrap.addEventListener('pointermove', mv); wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
+}
+var poly = null;   // { page, pts:[[px,px]...] }
+function polyTap(pi, fx, fy){
+  var i = pageInfo[pi], x = fx*i.W, y = fy*i.H;
+  if (poly && poly.page !== pi){ cancelPoly(); }
+  if (!poly){ poly = { page:pi, pts:[] }; $('polyact').style.display=''; }
+  if (poly.pts.length >= 3 && Math.hypot(x-poly.pts[0][0], y-poly.pts[0][1]) < 14){ finishPoly(); return; }
+  poly.pts.push([x,y]); drawPolyPreview();
+  say('頂点 '+poly.pts.length+' 個。最初の点に戻るか「完成」で閉じます（'+(poly.pts.length<3?'あと'+(3-poly.pts.length)+'個以上':'閉じられます')+'）');
+}
+function drawPolyPreview(){
+  var wrap = pageInfo[poly.page].wrap, i = pageInfo[poly.page], o = overlay(wrap); o.innerHTML = '';
+  o.appendChild(svgEl('polyline', { points: poly.pts.map(function(q){ return q.join(','); }).join(' '), stroke: shStyle.color, 'stroke-width': pxStroke(i), fill:'none', 'stroke-linejoin':'round' }));
+  poly.pts.forEach(function(q,k){ o.appendChild(svgEl('circle', { cx:q[0], cy:q[1], r: k===0 ? 7 : 4, fill: k===0 ? '#fff' : shStyle.color, stroke: shStyle.color, 'stroke-width': 2 })); });
+}
+function finishPoly(){
+  if (!poly || poly.pts.length < 3){ say('多角形は頂点が3つ以上要ります', true); return; }
+  var i = pageInfo[poly.page], k = i.mmW / i.W, pts = poly.pts.map(function(q){ return [q[0]*k, q[1]*k]; }), pg = poly.page;
+  cancelPoly(); makeShape(pg, 'poly', pts);
+}
+function cancelPoly(){ if (!poly) return; clearOverlay(pageInfo[poly.page].wrap); poly = null; $('polyact').style.display='none'; }
+$('polydone').onclick = finishPoly; $('polycancel').onclick = function(){ cancelPoly(); say('取り消しました'); };
+function drawing(){ return tool==='line'||tool==='rect'||tool==='poly'; }
+function updateShOpts(){
+  var show = drawing() || (sel && sel.kind==='shape');
+  $('shopts').style.display = show ? '' : 'none';
+  document.querySelectorAll('.pw').forEach(function(w){ w.classList.toggle('draw', drawing()); });
+  // 図形を選んでいるときはその図形の設定を映し、変更はその図形に効く。選んでいなければ次に描く図形の設定
+  if (sel && sel.kind==='shape'){ shStyle = { w: sel.shape.w, color: sel.shape.color, fill: sel.shape.fill }; }
+  $('shw').value = String(shStyle.w);
+  document.querySelectorAll('#shcolors button').forEach(function(b){ b.classList.toggle('on', b.dataset.c===shStyle.color); });
+  document.querySelectorAll('#shfills button').forEach(function(b){ b.classList.toggle('on', b.dataset.c===shStyle.fill); });
+}
+function shChanged(){ if (sel && sel.kind==='shape') restyleShape(sel); else if (poly) drawPolyPreview(); }
+$('shw').addEventListener('change', function(){ shStyle.w = parseFloat($('shw').value); shChanged(); });
+$('shcolors').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; shStyle.color = b.dataset.c; updateShOpts(); shChanged(); });
+$('shfills').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; shStyle.fill = b.dataset.c; updateShOpts(); shChanged(); });
+document.addEventListener('keydown', function(e){ if (e.key==='Escape' && poly){ cancelPoly(); say('取り消しました'); } });
+
 function bindPage(wrap, idx){
   wrap.addEventListener('pointerdown', function(e){
     if (e.target.closest && e.target.closest('.seal')) return;
+    if (tool === 'line' || tool === 'rect'){ dragShape(wrap, idx, e); return; }
     var sx=e.clientX, sy=e.clientY, moved=false;
     function mv(ev){ if (Math.abs(ev.clientX-sx)>8||Math.abs(ev.clientY-sy)>8) moved=true; }
     function done(){ wrap.removeEventListener('pointermove',mv); wrap.removeEventListener('pointerup',up); wrap.removeEventListener('pointercancel',done); }
