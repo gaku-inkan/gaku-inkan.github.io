@@ -81,7 +81,8 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
 .shopts label{display:flex;align-items:center;gap:5px;white-space:nowrap}
 .shopts select{width:auto;padding:5px 8px}
 .shopts .sw{display:inline-flex;gap:4px}
-.shopts .sw button{width:24px;height:24px;border-radius:50%;padding:0;border:2px solid var(--line-2)}
+.shopts .sw button,.shopts .sw input[type=color]{width:24px;height:24px;border-radius:50%;padding:0;border:2px solid var(--line-2);background:transparent}
+.shopts .sw input[type=color].on{border-color:var(--shu)}
 .shopts .sw button.on{border-color:var(--shu)}
 .shopts .sw button.none{background:linear-gradient(135deg,transparent 45%,var(--shu) 45%,var(--shu) 55%,transparent 55%),var(--surface)}
 .shopts .act{margin-left:auto;display:flex;gap:6px}
@@ -183,8 +184,8 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
     </div>
     <div class="shopts" id="shopts" style="display:none">
       <label>線<select id="shw"><option value="0.2">細 0.2mm</option><option value="0.35" selected>普通 0.35mm</option><option value="0.6">太 0.6mm</option><option value="1">極太 1mm</option></select></label>
-      <label>色<span class="sw" id="shcolors"><button type="button" data-c="#1f1b17" style="background:#1f1b17" class="on" aria-label="黒"></button><button type="button" data-c="#c8322b" style="background:#c8322b" aria-label="朱"></button><button type="button" data-c="#1d4ed8" style="background:#1d4ed8" aria-label="青"></button></span></label>
-      <label>塗り<span class="sw" id="shfills"><button type="button" data-c="" class="none on" aria-label="なし"></button><button type="button" data-c="#ffffff" style="background:#fff" aria-label="白"></button><button type="button" data-c="#fde68a" style="background:#fde68a" aria-label="黄"></button><button type="button" data-c="#c8322b" style="background:#c8322b" aria-label="朱"></button></span></label>
+      <label>色<span class="sw" id="shcolors"><button type="button" data-c="#1f1b17" style="background:#1f1b17" class="on" aria-label="黒"></button><button type="button" data-c="#c8322b" style="background:#c8322b" aria-label="朱"></button><button type="button" data-c="#1d4ed8" style="background:#1d4ed8" aria-label="青"></button><input type="color" id="shcolor2" value="#1f1b17" aria-label="線のその他の色" title="その他の色"></span></label>
+      <label>塗り<span class="sw" id="shfills"><button type="button" data-c="" class="none on" aria-label="なし"></button><button type="button" data-c="#ffffff" style="background:#fff" aria-label="白"></button><button type="button" data-c="#fde68a" style="background:#fde68a" aria-label="黄"></button><button type="button" data-c="#c8322b" style="background:#c8322b" aria-label="朱"></button><input type="color" id="shfill2" value="#fde68a" aria-label="塗りのその他の色" title="その他の色"></span></label>
       <span class="act" id="polyact" style="display:none"><button type="button" id="polydone">完成</button><button type="button" id="polycancel">取消</button></span>
     </div>
     <div class="ctl" id="ctl" style="display:none">
@@ -693,13 +694,20 @@ function updateShOpts(){
   // 図形を選んでいるときはその図形の設定を映し、変更はその図形に効く。選んでいなければ次に描く図形の設定
   if (styled(sel)){ shStyle = { w: sel.shape.w, color: sel.shape.color, fill: sel.shape.fill }; }
   $('shw').value = String(shStyle.w);
-  document.querySelectorAll('#shcolors button').forEach(function(b){ b.classList.toggle('on', b.dataset.c===shStyle.color); });
-  document.querySelectorAll('#shfills button').forEach(function(b){ b.classList.toggle('on', b.dataset.c===shStyle.fill); });
+  var hitC = false, hitF = false;
+  document.querySelectorAll('#shcolors button').forEach(function(b){ var on = b.dataset.c===shStyle.color; hitC = hitC || on; b.classList.toggle('on', on); });
+  document.querySelectorAll('#shfills button').forEach(function(b){ var on = b.dataset.c===shStyle.fill; hitF = hitF || on; b.classList.toggle('on', on); });
+  $('shcolor2').classList.toggle('on', !hitC); if (!hitC) $('shcolor2').value = shStyle.color;
+  $('shfill2').classList.toggle('on', !hitF && !!shStyle.fill); if (!hitF && shStyle.fill) $('shfill2').value = shStyle.fill;
 }
 function shChanged(){ if (styled(sel)) restyleShape(sel); else if (poly) drawPolyPreview(); }
-$('shw').addEventListener('change', function(){ shStyle.w = parseFloat($('shw').value); shChanged(); });
-$('shcolors').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; shStyle.color = b.dataset.c; updateShOpts(); shChanged(); });
-$('shfills').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; shStyle.fill = b.dataset.c; updateShOpts(); shChanged(); });
+/** 線・色・塗りの変更。図形を選んでいればその図形に、なければ次に描く図形に効く */
+function setSh(k, v){ shStyle[k] = v; if (styled(sel)) sel.shape[k] = v; updateShOpts(); shChanged(); }
+$('shw').addEventListener('change', function(){ setSh('w', parseFloat($('shw').value)); });
+$('shcolors').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; setSh('color', b.dataset.c); });
+$('shfills').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; setSh('fill', b.dataset.c); });
+$('shcolor2').addEventListener('change', function(){ setSh('color', $('shcolor2').value); });
+$('shfill2').addEventListener('change', function(){ setSh('fill', $('shfill2').value); });
 document.addEventListener('keydown', function(e){ if (e.key==='Escape' && poly){ cancelPoly(); say('取り消しました'); } });
 
 function bindPage(wrap, idx){
