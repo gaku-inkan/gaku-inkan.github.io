@@ -619,16 +619,24 @@ function makeEraseKeep(pi, x0, y0, x1, y1){
   return i.page.render({ canvasContext: c, viewport: vp }).promise.then(function(){
     var im = c.getImageData(0,0,rw,rh), d = im.data, n = rw*rh, g = new Uint8Array(n), keep = new Uint8Array(n);
     for (var k=0;k<n;k++){ var a = d[k*4+3]/255; g[k] = Math.round((0.299*d[k*4]+0.587*d[k*4+1]+0.114*d[k*4+2])*a + 255*(1-a)); }
-    var DARK = 200, GAP = Math.round(pxmm*1.2), minRun = Math.round(Math.min(8*pxmm, 0.7*Math.max(rw,rh)));
-    function scan(len, cnt, idx){   // 各ライン上で、短い切れ目を許しつつ長く続く暗い区間を残す
+    var DARK = 190, GAP = Math.round(pxmm*0.2), minRun = Math.round(Math.min(8*pxmm, 0.7*Math.max(rw,rh))), THICK = 1.5*pxmm;
+    // 各画素が属する、縦方向・横方向の連続した暗部の長さ（線の太さの判定に使う）
+    var vlen = new Uint16Array(n), hlen = new Uint16Array(n);
+    function runs(len, cnt, idx, out){ for (var l=0;l<cnt;l++){ var st=-1; for (var t=0;t<=len;t++){ var dk = t<len && g[idx(l,t)]<DARK; if (dk){ if (st<0) st=t; } else if (st>=0){ for (var u=st;u<t;u++) out[idx(l,u)] = Math.min(65535, t-st); st=-1; } } } }
+    runs(rh, rw, function(x,y){ return y*rw+x; }, vlen); runs(rw, rh, function(y,x){ return y*rw+x; }, hlen);
+    function median(a){ a.sort(function(p,q){ return p-q; }); return a[a.length>>1]; }
+    // 各ライン上で、短い切れ目を許しつつ長く続く暗い区間を探し、細いもの（罫線）だけ残す。文字の行は太さが3mm以上あるので弾かれる
+    function scan(len, cnt, idx, thickOf){
       for (var l=0;l<cnt;l++){ var start=-1, last=-1;
         for (var t=0;t<=len;t++){ var dark = t<len && g[idx(l,t)]<DARK;
           if (dark){ if (start<0) start=t; last=t; }
-          else if (start>=0 && (t-last>GAP || t===len)){ if (last-start+1>=minRun) for (var u=start;u<=last;u++) keep[idx(l,u)]=1; start=-1; }
+          else if (start>=0 && (t-last>GAP || t===len)){
+            if (last-start+1>=minRun){ var th=[]; for (var v=start;v<=last;v+=3) if (g[idx(l,v)]<DARK) th.push(thickOf[idx(l,v)]); if (th.length && median(th) <= THICK) for (var u=start;u<=last;u++) keep[idx(l,u)]=1; }
+            start=-1; }
         } }
     }
-    scan(rw, rh, function(y,x){ return y*rw+x; });   // 横線
-    scan(rh, rw, function(x,y){ return y*rw+x; });   // 縦線
+    scan(rw, rh, function(y,x){ return y*rw+x; }, vlen);   // 横線：縦の太さが細いもの
+    scan(rh, rw, function(x,y){ return y*rw+x; }, hlen);   // 縦線：横の太さが細いもの
     var out = c.createImageData(rw, rh), o = out.data;
     for (var k2=0;k2<n;k2++){
       var y = (k2/rw)|0, x = k2-y*rw, on = keep[k2] || (g[k2]<235 && (keep[k2-1]|keep[k2+1]|(y>0?keep[k2-rw]:0)|(y<rh-1?keep[k2+rw]:0)));   // 線の縁のにじみも残す
