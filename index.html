@@ -54,7 +54,7 @@ h2{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-
 .pact{position:absolute;right:6px;top:6px;display:flex;gap:4px;align-items:center;font-size:11px;color:#fff;background:rgba(0,0,0,.55);padding:2px 4px 2px 8px;border-radius:12px;font-variant-numeric:tabular-nums;z-index:2}
 .pact button{border:0;background:rgba(255,255,255,.2);color:#fff;border-radius:8px;padding:2px 7px;font-size:11px;line-height:1.4;touch-action:manipulation}
 .pact button:hover{background:rgba(255,255,255,.4)}
-@media (max-width:480px){.top h1{display:none}}
+@media (max-width:480px){.top h1{display:none} .ctl label{flex-basis:100%}}
 .seal{position:absolute;touch-action:none;cursor:move;border:2px dashed transparent;border-radius:4px}
 .seal img{width:100%;height:100%;display:block;pointer-events:none}
 .seal::before{content:"";position:absolute;inset:-10px;}   /* 指で触れる余白（見た目には出ない） */
@@ -96,8 +96,10 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
 .swatches{display:flex;gap:6px;align-items:center}
 .swatches button{width:30px;height:30px;border-radius:50%;padding:0;border:2px solid var(--line-2)}
 .swatches button.on{border-color:var(--shu);box-shadow:0 0 0 2px var(--surface) inset}
-.ctl{display:flex;gap:12px;align-items:center;font-size:12px}
-.ctl label{display:flex;align-items:center;gap:6px;flex:1;white-space:nowrap}
+.ctl{display:flex;gap:8px 12px;align-items:center;font-size:12px;flex-wrap:wrap}
+.ctl label{display:flex;align-items:center;gap:6px;flex:1 1 150px;white-space:nowrap;min-width:0}
+.ctl label input[type=range]{min-width:0;height:30px}
+.ctl .btns{display:flex;gap:6px;align-items:center;margin-left:auto}
 .ctl .v{font-variant-numeric:tabular-nums;min-width:3.6em;text-align:right}
 .nudge{display:inline-flex;gap:2px}
 .nudge button{width:30px;height:30px;padding:0;font-size:11px;border-radius:7px}
@@ -188,10 +190,10 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
     <div class="ctl" id="ctl" style="display:none">
       <label>大きさ<input type="range" id="sz" min="8" max="120" step="0.5"><span class="v"><span id="szv">18</span>mm</span></label>
       <label>濃さ<input type="range" id="op" min="30" max="100" step="5"><span class="v"><span id="opv">100</span>%</span></label>
-      <span class="nudge" aria-label="位置の微調整"><button type="button" data-d="0,-1" title="上へ 0.5mm">▲</button><button type="button" data-d="-1,0" title="左へ 0.5mm">◀</button><button type="button" data-d="1,0" title="右へ 0.5mm">▶</button><button type="button" data-d="0,1" title="下へ 0.5mm">▼</button></span>
+      <span class="btns"><span class="nudge" aria-label="位置の微調整"><button type="button" data-d="0,-1" title="上へ 0.5mm">▲</button><button type="button" data-d="-1,0" title="左へ 0.5mm">◀</button><button type="button" data-d="1,0" title="右へ 0.5mm">▶</button><button type="button" data-d="0,1" title="下へ 0.5mm">▼</button></span>
       <button type="button" id="dup" title="複製（Ctrl/⌘+C → V でも）">複製</button>
       <button type="button" id="edit" style="display:none">編集</button>
-      <button type="button" id="del">外す</button>
+      <button type="button" id="del">外す</button></span>
     </div>
     <div class="msg" id="msg">印鑑か「文字」を選んで、置きたい場所をタップしてください</div>
     <div class="opts">
@@ -450,7 +452,7 @@ function select(p){
   if (p){
     $('edit').style.display = p.kind==='text' ? '' : 'none';
     if (p.kind==='text'){ $('sz').min=2; $('sz').max=20; $('sz').value=p.sizeMm; $('szv').textContent=p.sizeMm; }
-    else { $('sz').min=8; $('sz').max=120; var mm = Math.round(p.w*pageInfo[p.page].mmW*2)/2; $('sz').value=mm; $('szv').textContent=mm; }
+    else { var pw = pageInfo[p.page].mmW, mm = Math.round(p.w*pw*2)/2; if (p.kind==='shape'){ $('sz').min=2; $('sz').max=Math.ceil(Math.max(pw, mm)); } else { $('sz').min=8; $('sz').max=Math.max(120, Math.ceil(mm)); } $('sz').value=mm; $('szv').textContent=mm; }
     $('op').value=Math.round(p.opacity*100); $('opv').textContent=$('op').value;
   }
 }
