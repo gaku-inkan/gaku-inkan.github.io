@@ -130,6 +130,7 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
 .seg{display:flex;border:1px solid var(--line-2);border-radius:10px;overflow:hidden}
 .seg button{flex:1;border:0;border-radius:0;background:transparent;padding:9px 4px;font-size:13px}
 .seg button.on{background:var(--shu);color:var(--shu-ink)}
+.seg.small{flex:1}.seg.small button{padding:6px 4px;font-size:12px}
 .preview{display:flex;gap:14px;align-items:center;margin:10px 0}
 .preview canvas{width:120px;height:120px;background:#fff;border:1px solid var(--line);border-radius:10px}
 .preview .hint{font-size:12px;color:var(--ink-2);line-height:1.6}
@@ -188,6 +189,10 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
       <label>塗り<span class="sw" id="shfills"><button type="button" data-c="" class="none on" aria-label="なし"></button><button type="button" data-c="#ffffff" style="background:#fff" aria-label="白"></button><button type="button" data-c="#fde68a" style="background:#fde68a" aria-label="黄"></button><button type="button" data-c="#c8322b" style="background:#c8322b" aria-label="朱"></button><input type="color" id="shfill2" value="#fde68a" aria-label="塗りのその他の色" title="その他の色"></span></label>
       <span class="act" id="polyact" style="display:none"><button type="button" id="polydone">完成</button><button type="button" id="polycancel">取消</button></span>
     </div>
+    <div class="shopts" id="eropts" style="display:none">
+      <span>消し方</span>
+      <span class="seg small" id="ermode"><button type="button" data-m="lines" class="on">文字だけ消す（罫線を残す）</button><button type="button" data-m="all">全部白く塗る</button></span>
+    </div>
     <div class="ctl" id="ctl" style="display:none">
       <label>大きさ<input type="range" id="sz" min="8" max="120" step="0.5"><span class="v"><span id="szv">18</span>mm</span></label>
       <label>濃さ<input type="range" id="op" min="30" max="100" step="5"><span class="v"><span id="opv">100</span>%</span></label>
@@ -210,7 +215,7 @@ label.btn{display:inline-block;background:var(--shu);color:var(--shu-ink);font-w
       <div class="acts"><a class="dl" id="dl" href="#" download>ダウンロード</a><button type="button" id="share" style="display:none">共有…</button></div>
       <div class="note" style="margin-top:6px">iPhoneでは「共有…」からファイルに保存・メール・LINEへ送れます。</div>
     </div>
-    <div class="note"><span id="cnt"></span>各ページ右上の ↑↓ で並べ替え、「削除」でページを外せます。「＋追加」で別のPDFを後ろにつなげます。「消す」は範囲を白く塗って隠します（下の文字まで消すには「画像にして固定」）。ピンチ・Ctrl+ホイール・右上の −/＋ で拡大縮小。直線はShiftを押しながらで水平・垂直。選んだものは矢印キー（Shiftで大きく）か ▲◀▶▼ で微調整、「複製」か ⌘/Ctrl+C → V でコピーできます。原本のPDFは変更されません。電子印鑑は見た目の押印で、電子署名（改竄検知・本人証明）ではありません。印鑑と履歴はこの端末のブラウザにだけ保存されます。</div>
+    <div class="note"><span id="cnt"></span>各ページ右上の ↑↓ で並べ替え、「削除」でページを外せます。「＋追加」で別のPDFを後ろにつなげます。「消す」は範囲の文字を白く塗って隠し、罫線は残します（全部白くもできる。下の文字まで消すには「画像にして固定」）。ピンチ・Ctrl+ホイール・右上の −/＋ で拡大縮小。直線はShiftを押しながらで水平・垂直。選んだものは矢印キー（Shiftで大きく）か ▲◀▶▼ で微調整、「複製」か ⌘/Ctrl+C → V でコピーできます。原本のPDFは変更されません。電子印鑑は見た目の押印で、電子署名（改竄検知・本人証明）ではありません。印鑑と履歴はこの端末のブラウザにだけ保存されます。</div>
   </aside>
 </div>
 
@@ -601,6 +606,46 @@ $('txgo').addEventListener('click', function(){
 // ---------- 図形（直線・四角・多角形） ----------
 var shStyle = { w:0.35, color:'#1f1b17', fill:'' };
 var ERASE = { w:0, color:'#000000', fill:'#ffffff', erase:true };   // 「消す」＝白塗り・線なし
+var eraseMode = 'lines';   // 'lines' 罫線を残して文字だけ消す ／ 'all' 全部白く
+$('ermode').addEventListener('click', function(e){ var b = e.target.closest('button'); if (!b) return; eraseMode = b.dataset.m; Array.prototype.forEach.call($('ermode').children, function(x){ x.classList.toggle('on', x===b); }); });
+/** 範囲（mm, 表示座標）を300dpiで描き、長く続く横線・縦線だけ残して他を白にした画像を置く */
+function makeEraseKeep(pi, x0, y0, x1, y1){
+  var i = pageInfo[pi], mmH = pageMmH(i), DPI = 300, pxmm = DPI/25.4, sc = DPI/72;
+  var full = i.page.getViewport({ scale: sc });
+  var rx = Math.floor(x0/i.mmW*full.width), ry = Math.floor(y0/mmH*full.height), rw = Math.max(2, Math.ceil((x1-x0)/i.mmW*full.width)), rh = Math.max(2, Math.ceil((y1-y0)/mmH*full.height));
+  var vp = i.page.getViewport({ scale: sc, offsetX: -rx, offsetY: -ry });
+  var cv = document.createElement('canvas'); cv.width = rw; cv.height = rh; var c = cv.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0,0,rw,rh);
+  say('文字を消しています…');
+  return i.page.render({ canvasContext: c, viewport: vp }).promise.then(function(){
+    var im = c.getImageData(0,0,rw,rh), d = im.data, n = rw*rh, g = new Uint8Array(n), keep = new Uint8Array(n);
+    for (var k=0;k<n;k++){ var a = d[k*4+3]/255; g[k] = Math.round((0.299*d[k*4]+0.587*d[k*4+1]+0.114*d[k*4+2])*a + 255*(1-a)); }
+    var DARK = 200, GAP = Math.round(pxmm*1.2), minRun = Math.round(Math.min(8*pxmm, 0.7*Math.max(rw,rh)));
+    function scan(len, cnt, idx){   // 各ライン上で、短い切れ目を許しつつ長く続く暗い区間を残す
+      for (var l=0;l<cnt;l++){ var start=-1, last=-1;
+        for (var t=0;t<=len;t++){ var dark = t<len && g[idx(l,t)]<DARK;
+          if (dark){ if (start<0) start=t; last=t; }
+          else if (start>=0 && (t-last>GAP || t===len)){ if (last-start+1>=minRun) for (var u=start;u<=last;u++) keep[idx(l,u)]=1; start=-1; }
+        } }
+    }
+    scan(rw, rh, function(y,x){ return y*rw+x; });   // 横線
+    scan(rh, rw, function(x,y){ return y*rw+x; });   // 縦線
+    var out = c.createImageData(rw, rh), o = out.data;
+    for (var k2=0;k2<n;k2++){
+      var y = (k2/rw)|0, x = k2-y*rw, on = keep[k2] || (g[k2]<235 && (keep[k2-1]|keep[k2+1]|(y>0?keep[k2-rw]:0)|(y<rh-1?keep[k2+rw]:0)));   // 線の縁のにじみも残す
+      if (on){ o[k2*4]=d[k2*4]; o[k2*4+1]=d[k2*4+1]; o[k2*4+2]=d[k2*4+2]; } else { o[k2*4]=o[k2*4+1]=o[k2*4+2]=255; }
+      o[k2*4+3]=255;
+    }
+    c.putImageData(out, 0, 0);
+    var p = { kind:'shape', page:pi, x:rx/full.width, y:ry/full.height, w:rw/full.width, aspect:rh/rw, opacity:1, src:cv.toDataURL('image/png'),
+              shape:{ type:'rect', pts:[[0,0],[rw/pxmm, rh/pxmm]], pad:0, w:0, color:'#000000', fill:'#ffffff', erase:true, keep:true } };
+    if (placed.length >= 60){ say('置けるのは最大60個までです', true); return null; }
+    attach(p);
+    var kept = 0; for (var k3=0;k3<n;k3++) kept += keep[k3];
+    var m = kept ? '文字を消して罫線を残しました。' : '文字を消しました（残す線は見つかりませんでした）。';
+    if (!$('flatten').checked){ $('flatten').checked = true; m += '下の文字そのものも消すため「画像にして固定」をオンにしました'; }
+    say(m); return p;
+  }).catch(function(e){ say('消せませんでした：'+(e&&e.message||e), true); });
+}
 var K = 8;   // 画像化の解像度 px/mm
 function pageMmH(i){ return i.mmW * i.H / i.W; }
 function overlay(wrap){ var o = wrap.querySelector('svg.ov'); if (!o){ o = document.createElementNS('http://www.w3.org/2000/svg','svg'); o.setAttribute('class','ov'); wrap.appendChild(o); } o.setAttribute('viewBox','0 0 '+wrap.clientWidth+' '+wrap.clientHeight); return o; }
@@ -660,6 +705,7 @@ function dragShape(wrap, idx, e){
     if (pinching || !cur || (Math.abs(cur[0]-sx) < 6 && Math.abs(cur[1]-sy) < 6)) return;   // ほぼ動いていない＝描かない
     var k = i.mmW / i.W;
     var a = [sx*k, sy*k], b = [cur[0]*k, cur[1]*k];
+    if (erase && eraseMode==='lines'){ makeEraseKeep(idx, Math.min(a[0],b[0]), Math.min(a[1],b[1]), Math.max(a[0],b[0]), Math.max(a[1],b[1])); return; }
     makeShape(idx, type, type==='rect' ? [[Math.min(a[0],b[0]), Math.min(a[1],b[1])],[Math.max(a[0],b[0]), Math.max(a[1],b[1])]] : [a, b], erase ? ERASE : null);
   }
   wrap.addEventListener('pointermove', mv); wrap.addEventListener('pointerup', up); wrap.addEventListener('pointercancel', up);
@@ -690,6 +736,7 @@ function styled(p){ return p && p.kind==='shape' && !p.shape.erase; }   // 線�
 function updateShOpts(){
   var show = (drawing() && tool!=='erase') || styled(sel);
   $('shopts').style.display = show ? '' : 'none';
+  $('eropts').style.display = tool==='erase' ? '' : 'none';
   document.querySelectorAll('.pw').forEach(function(w){ w.classList.toggle('draw', drawing()); });
   // 図形を選んでいるときはその図形の設定を映し、変更はその図形に効く。選んでいなければ次に描く図形の設定
   if (styled(sel)){ shStyle = { w: sel.shape.w, color: sel.shape.color, fill: sel.shape.fill }; }
